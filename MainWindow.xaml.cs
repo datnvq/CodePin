@@ -272,6 +272,13 @@ public partial class MainWindow : Window
             Clipboard.SetText(extracted);
             int lineCount = extracted.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None).Length;
             ShowToast($"✅ Đã copy {lineCount} dòng code vào Clipboard!");
+
+            // Open Preview / Editor window so user can inspect and tweak code immediately
+            var resultWindow = new OcrResultWindow(extracted)
+            {
+                Owner = this
+            };
+            resultWindow.ShowDialog();
         }
         catch (Exception ex)
         {
