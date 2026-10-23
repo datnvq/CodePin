@@ -1,7 +1,9 @@
 # Build results
 [Bb]in/
 [Oo]bj/
-publish/
+
+# Ignore debug symbols
+*.pdb
 
 # Visual Studio / VS Code
 .vs/
