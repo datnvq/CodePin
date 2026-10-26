@@ -17,6 +17,7 @@ public class AppSettings
     public double Zoom { get; set; } = 1.0;
     public double PanX { get; set; } = 0;
     public double PanY { get; set; } = 0;
+    public bool IsFirstRun { get; set; } = true;
 }
 
 public static class SettingsManager

@@ -1,0 +1,35 @@
+name: Build and Release CodePin
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Build & Publish Release
+      run: |
+        dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o ./publish
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: CodePin-Portable
+        path: |
+          publish/CodePin.exe
+          publish/app.ico
+          setup.bat
+          uninstall.bat

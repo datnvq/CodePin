@@ -4,10 +4,21 @@
 
 ---
 
-## 🚀 Cách chạy ứng dụng
+## 🚀 Cách cài đặt & Chạy ứng dụng
 
-- Chạy trực tiếp file: 👉 **[`publish\CodePin.exe`](file:///d:/Antigravity/New%20folder%20(2)/publish/CodePin.exe)** (Chỉ ~190KB, không cần cài đặt rườm rà).
-- Hoặc dùng terminal: `dotnet run`
+CodePin hỗ trợ 2 cách sử dụng cực kỳ tiện lợi:
+
+### Cách 1: Cài đặt tự động 1-Click (Khuyên dùng)
+- Nhấp đúp chạy file **`setup.bat`**.
+- Chương trình sẽ tự động:
+  - Cài đặt CodePin vào hệ thống (không cần quyền Admin).
+  - Tạo biểu tượng lối tắt 📌 ngoài màn hình chính (**Desktop**).
+  - Thêm CodePin vào **Menu Start** (chỉ cần bấm phím Windows và gõ "CodePin" là mở được ngay).
+  - Nếu muốn gỡ cài đặt sau này: Chỉ cần chạy `uninstall.bat`.
+
+### Cách 2: Chạy Portable trực tiếp không cần cài đặt
+- Nhấp đúp trực tiếp vào file: 👉 **[`publish\CodePin.exe`](file:///d:/Antigravity/CodePin/publish/CodePin.exe)**.
+- Lần đầu chạy, ứng dụng cũng sẽ tự động tạo lối tắt ngoài Desktop cho bạn!
 
 ---
 
@@ -32,6 +43,14 @@
 
 ---
 
+### 4. 🗔 Chạy ngầm dưới Khay Hệ Thống (System Tray)
+- Khi bấm nút **`✕`** hoặc nhấn **`Esc`**: CodePin sẽ tự động **thu nhỏ xuống khay hệ thống (System Tray)** thay vì tắt hẳn.
+- **Bấm đúp** vào biểu tượng 📌 dưới khay hoặc bấm chuột phải chọn **`📌 Mở CodePin`** để mở lại ngay lập tức mà không làm mất ảnh đang ghim.
+- Các phím tắt toàn cục như **`Ctrl + Alt + T`** (ghim cửa sổ khác) vẫn luôn hoạt động kể cả khi CodePin đang ẩn dưới khay.
+- Để thoát hoàn toàn: Chuột phải vào biểu tượng khay hoặc trên cửa sổ chọn **`❌ Thoát hoàn toàn`**.
+
+---
+
 ## ⌨️ Bảng Phím Tắt & Thao Tác Toàn Diện
 
 | Thao tác | Phím tắt / Chuột | Chức năng |
@@ -48,4 +67,5 @@
 | **Bật/Tắt Ghim CodePin** | Nút `📌` hoặc Menu chuột phải | Bật/tắt chế độ Always-on-top của CodePin |
 | **Chế độ xuyên chuột** | **`F8`** hoặc **`Ctrl + Alt + P`** | Chuột click xuyên qua ảnh xuống IDE bên dưới |
 | **Kéo đổi kích thước** | Kéo góc dưới cùng bên phải | Co giãn khung hiển thị linh hoạt |
-| **Đóng ứng dụng** | **`Esc`** hoặc nút `✕` | Đóng cửa sổ và tự động lưu phiên |
+| **Thu nhỏ xuống khay** | **`Esc`** hoặc nút `✕` | Ẩn xuống khay hệ thống, tiện mở lại tức thì |
+| **Thoát hoàn toàn** | Menu chuột phải -> `Thoát` | Tắt hoàn toàn ứng dụng và lưu phiên |

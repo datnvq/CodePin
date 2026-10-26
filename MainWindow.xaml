@@ -19,7 +19,8 @@
         MouseDown="Window_MouseDown"
         MouseMove="Window_MouseMove"
         MouseUp="Window_MouseUp"
-        MouseWheel="Window_MouseWheel">
+        MouseWheel="Window_MouseWheel"
+        SizeChanged="Window_SizeChanged">
 
     <Window.Resources>
         <!-- Button Style for Title Bar -->
@@ -50,6 +51,30 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Tray Icon Context Menu -->
+        <ContextMenu x:Key="TrayContextMenu" Background="#1E1E2E" BorderBrush="#45475A" BorderThickness="1.5">
+            <ContextMenu.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Foreground" Value="#CDD6F4"/>
+                    <Setter Property="FontSize" Value="12.5"/>
+                    <Setter Property="Padding" Value="8,5"/>
+                </Style>
+                <Style TargetType="Separator">
+                    <Setter Property="Background" Value="#313244"/>
+                    <Setter Property="Margin" Value="4,3"/>
+                </Style>
+            </ContextMenu.Resources>
+            <MenuItem Header="📌 Mở CodePin" FontWeight="Bold" Foreground="#A6E3A1" Click="TrayMenuOpen_Click"/>
+            <Separator/>
+            <MenuItem Header="📋 Dán ảnh từ Clipboard" Click="MenuPaste_Click" InputGestureText="Ctrl+V"/>
+            <MenuItem Header="📝 Trích xuất Code (OCR)" Click="MenuOcr_Click" InputGestureText="Ctrl+T"/>
+            <MenuItem Header="🪟 Ghim cửa sổ khác..." Click="MenuWindowPicker_Click" ToolTip="Hoặc bấm Ctrl+Alt+T trên cửa sổ bất kỳ"/>
+            <MenuItem Header="🎯 Khôi phục vị trí mặc định" Click="TrayMenuResetPosition_Click"/>
+            <MenuItem Header="🖥️ Tạo lối tắt ngoài Desktop" Click="MenuCreateShortcut_Click"/>
+            <Separator/>
+            <MenuItem Header="❌ Thoát hoàn toàn" Click="TrayMenuExit_Click"/>
+        </ContextMenu>
     </Window.Resources>
 
     <!-- Main Container Card -->
@@ -79,8 +104,10 @@
                 <Separator/>
                 <MenuItem Header="👻 Bật/Tắt chế độ xuyên chuột (Click-through)" Click="MenuClickThrough_Click" ToolTip="Nhấn F8 hoặc Ctrl+Alt+P để bật/tắt"/>
                 <MenuItem Header="🗑️ Xoá ảnh / Làm mới phiên" Click="MenuClearSession_Click"/>
+                <MenuItem Header="🖥️ Tạo lối tắt ngoài Desktop" Click="MenuCreateShortcut_Click"/>
                 <Separator/>
-                <MenuItem Header="❌ Đóng" Click="MenuClose_Click" InputGestureText="Esc"/>
+                <MenuItem Header="➖ Thu nhỏ xuống khay" Click="MenuClose_Click" InputGestureText="Esc"/>
+                <MenuItem Header="❌ Thoát hoàn toàn" Click="TrayMenuExit_Click"/>
             </ContextMenu>
         </Border.ContextMenu>
 
@@ -94,37 +121,34 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- 1. TOP FLOATING CONTROL BAR -->
+            <!-- 1. TOP FLOATING CONTROL BAR (Responsive / Flex) -->
             <Border Grid.Row="0" VerticalAlignment="Top" HorizontalAlignment="Stretch" 
                     Background="#181825" CornerRadius="9,9,0,0" Padding="8,4"
                     BorderBrush="#313244" BorderThickness="0,0,0,1"
                     x:Name="TopBar">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Title / Status -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock x:Name="TxtPinIndicator" Text="📌 ON TOP" FontSize="11" FontWeight="Bold" Foreground="#A6E3A1" Margin="4,0,8,0" VerticalAlignment="Center"/>
+                <DockPanel LastChildFill="False">
+                    <!-- Left: Status indicators -->
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtPinIndicator" Text="📌 ON TOP" FontSize="11" FontWeight="Bold" Foreground="#A6E3A1" Margin="4,0,6,0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="TxtInfo" Text="100% | Mờ: 100%" FontSize="11" Foreground="#9399B2" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Draggable title grip -->
-                    <Rectangle Grid.Column="1" Fill="Transparent" Cursor="SizeAll"/>
+                    <!-- Rightmost Window Controls: ALWAYS visible, anchored to the right -->
+                    <Button DockPanel.Dock="Right" x:Name="BtnClose" Content="✕" 
+                            ToolTip="Thu nhỏ xuống khay (Esc) - Chuột phải chọn Thoát để đóng hẳn" 
+                            Style="{StaticResource HeaderButtonStyle}" Foreground="#F38BA8" FontWeight="Bold" Width="26" 
+                            Click="MenuClose_Click"/>
+                    <Button DockPanel.Dock="Right" x:Name="BtnTopmost" Content="📌" 
+                            ToolTip="Bật/Tắt luôn nổi trên cùng" 
+                            Style="{StaticResource HeaderButtonStyle}" Width="26" 
+                            Click="BtnToggleTopmost_Click"/>
 
-                    <!-- Action buttons -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="📋 Dán" ToolTip="Dán ảnh mới (Ctrl + V)" Style="{StaticResource HeaderButtonStyle}" Click="MenuPaste_Click"/>
-                        <Button Content="📝 OCR" ToolTip="Trích xuất &amp; Copy Code từ ảnh (Ctrl + T)" Style="{StaticResource HeaderButtonStyle}" Background="#313244" Foreground="#89B4FA" FontWeight="SemiBold" Click="MenuOcr_Click"/>
-                        <Button Content="🪟 Ghim App" ToolTip="Ghim cửa sổ ứng dụng khác (hoặc Ctrl + Alt + T)" Style="{StaticResource HeaderButtonStyle}" Click="MenuWindowPicker_Click"/>
-                        <Button Content="🔄 100%" ToolTip="Đặt lại thu phóng (Ctrl + 0)" Style="{StaticResource HeaderButtonStyle}" Click="MenuResetZoom_Click"/>
-                        <Button x:Name="BtnTopmost" Content="📌" ToolTip="Bật/Tắt luôn nổi trên cùng" Style="{StaticResource HeaderButtonStyle}" Click="BtnToggleTopmost_Click"/>
-                        <Button Content="✕" ToolTip="Đóng (Esc)" Style="{StaticResource HeaderButtonStyle}" Foreground="#F38BA8" Click="MenuClose_Click"/>
-                    </StackPanel>
-                </Grid>
+                    <!-- Action Buttons: Docked to the left of Close/Topmost, responsive -->
+                    <Button DockPanel.Dock="Right" x:Name="BtnResetZoom" Content="🔄 100%" ToolTip="Đặt lại thu phóng (Ctrl + 0)" Style="{StaticResource HeaderButtonStyle}" Click="MenuResetZoom_Click"/>
+                    <Button DockPanel.Dock="Right" x:Name="BtnWindowPicker" Content="🪟 Ghim" ToolTip="Ghim cửa sổ ứng dụng khác (Ctrl + Alt + T)" Style="{StaticResource HeaderButtonStyle}" Click="MenuWindowPicker_Click"/>
+                    <Button DockPanel.Dock="Right" x:Name="BtnOcr" Content="📝 OCR" ToolTip="Trích xuất &amp; Copy Code từ ảnh (Ctrl + T)" Style="{StaticResource HeaderButtonStyle}" Background="#313244" Foreground="#89B4FA" FontWeight="SemiBold" Click="MenuOcr_Click"/>
+                    <Button DockPanel.Dock="Right" x:Name="BtnPaste" Content="📋 Dán" ToolTip="Dán ảnh mới (Ctrl + V)" Style="{StaticResource HeaderButtonStyle}" Click="MenuPaste_Click"/>
+                </DockPanel>
             </Border>
 
             <!-- 2. CONTENT AREA -->

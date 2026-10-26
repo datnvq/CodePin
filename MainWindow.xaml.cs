@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -51,6 +52,9 @@ public partial class MainWindow : Window
     private IntPtr _hwnd = IntPtr.Zero;
     private HwndSource? _hwndSource;
     private DispatcherTimer? _toastTimer;
+    private TrayIconManager? _trayManager;
+    private bool _isExplicitExit = false;
+    private bool _hasShownTrayBalloon = false;
 
     // Pan state
     private Point _panStart;
@@ -70,17 +74,31 @@ public partial class MainWindow : Window
         _hwndSource = HwndSource.FromHwnd(_hwnd);
         _hwndSource?.AddHook(HwndHook);
 
-        // Register Global Hotkeys
+        // 1. Initialize System Tray Icon
+        _trayManager = new TrayIconManager(_hwnd, "CodePin - Ghim Ảnh & Cửa Sổ Nổi");
+        _trayManager.OnLeftClick = ShowWindowFromTray;
+        _trayManager.OnDoubleClick = ShowWindowFromTray;
+        _trayManager.OnRightClick = ShowTrayContextMenu;
+        _trayManager.OnBalloonClick = ShowWindowFromTray;
+
+        // 2. Register Global Hotkeys
         RegisterHotKey(_hwnd, HOTKEY_CLICKTHROUGH_F8, 0, VK_F8);
         RegisterHotKey(_hwnd, HOTKEY_CLICKTHROUGH_P, MOD_CONTROL | MOD_ALT, VK_P);
         RegisterHotKey(_hwnd, HOTKEY_WINDOW_PIN_T, MOD_CONTROL | MOD_ALT, VK_T);
 
-        // 1. Restore previous session if available
+        // 3. Restore previous session if available
         RestoreSession();
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        if (!_isExplicitExit)
+        {
+            e.Cancel = true;
+            HideToTray(showTip: true);
+            return;
+        }
+
         // Save current session before exiting
         SaveSession();
 
@@ -90,6 +108,9 @@ public partial class MainWindow : Window
             UnregisterHotKey(_hwnd, HOTKEY_CLICKTHROUGH_P);
             UnregisterHotKey(_hwnd, HOTKEY_WINDOW_PIN_T);
         }
+
+        _trayManager?.Dispose();
+        _trayManager = null;
     }
 
     private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -109,6 +130,16 @@ public partial class MainWindow : Window
                 handled = true;
             }
         }
+        else if (_trayManager != null && msg == TrayIconManager.WM_TRAYICON)
+        {
+            _trayManager.HandleMessage(lParam.ToInt32());
+            handled = true;
+        }
+        else if (_trayManager != null && msg == _trayManager.TaskbarCreatedMessage)
+        {
+            _trayManager.RecreateIcon();
+            handled = true;
+        }
         return IntPtr.Zero;
     }
 
@@ -119,6 +150,14 @@ public partial class MainWindow : Window
         try
         {
             var settings = SettingsManager.LoadSettings();
+
+            // First run auto-setup
+            if (settings.IsFirstRun)
+            {
+                CreateDesktopShortcut(silent: true);
+                settings.IsFirstRun = false;
+                SettingsManager.SaveSettings(settings);
+            }
 
             // Restore bounds if valid
             if (!double.IsNaN(settings.Left) && !double.IsNaN(settings.Top))
@@ -233,6 +272,7 @@ public partial class MainWindow : Window
 
     private void MenuWindowPicker_Click(object sender, RoutedEventArgs e)
     {
+        ShowWindowFromTray();
         var picker = new WindowPickerWindow(_hwnd)
         {
             Owner = this
@@ -246,6 +286,7 @@ public partial class MainWindow : Window
 
     private async void MenuOcr_Click(object sender, RoutedEventArgs e)
     {
+        ShowWindowFromTray();
         await PerformOcrAsync();
     }
 
@@ -532,6 +573,45 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double w = e.NewSize.Width;
+
+        // Dynamic responsive header ("flex" breakpoints)
+        if (w < 380)
+        {
+            if (TxtInfo != null) TxtInfo.Visibility = Visibility.Collapsed;
+            if (BtnResetZoom != null) BtnResetZoom.Visibility = Visibility.Collapsed;
+            if (BtnWindowPicker != null) BtnWindowPicker.Visibility = Visibility.Collapsed;
+            if (BtnPaste != null) BtnPaste.Content = "📋";
+            if (BtnOcr != null) BtnOcr.Content = "📝";
+        }
+        else if (w < 500)
+        {
+            if (TxtInfo != null) TxtInfo.Visibility = Visibility.Collapsed;
+            if (BtnResetZoom != null) BtnResetZoom.Visibility = Visibility.Collapsed;
+            if (BtnWindowPicker != null) BtnWindowPicker.Visibility = Visibility.Visible;
+            if (BtnPaste != null) BtnPaste.Content = "📋 Dán";
+            if (BtnOcr != null) BtnOcr.Content = "📝 OCR";
+        }
+        else if (w < 600)
+        {
+            if (TxtInfo != null) TxtInfo.Visibility = Visibility.Collapsed;
+            if (BtnResetZoom != null) BtnResetZoom.Visibility = Visibility.Visible;
+            if (BtnWindowPicker != null) BtnWindowPicker.Visibility = Visibility.Visible;
+            if (BtnPaste != null) BtnPaste.Content = "📋 Dán";
+            if (BtnOcr != null) BtnOcr.Content = "📝 OCR";
+        }
+        else
+        {
+            if (TxtInfo != null) TxtInfo.Visibility = Visibility.Visible;
+            if (BtnResetZoom != null) BtnResetZoom.Visibility = Visibility.Visible;
+            if (BtnWindowPicker != null) BtnWindowPicker.Visibility = Visibility.Visible;
+            if (BtnPaste != null) BtnPaste.Content = "📋 Dán";
+            if (BtnOcr != null) BtnOcr.Content = "📝 OCR";
+        }
+    }
+
     private static T? FindParent<T>(DependencyObject child) where T : DependencyObject
     {
         DependencyObject? parentObject = VisualTreeHelper.GetParent(child);
@@ -638,6 +718,7 @@ public partial class MainWindow : Window
 
     private void MenuPaste_Click(object sender, RoutedEventArgs e)
     {
+        ShowWindowFromTray();
         if (!TryPasteImage())
         {
             MessageBox.Show("Không có dữ liệu ảnh trong Clipboard.\nHãy dùng Win + Shift + S chụp lại rồi bấm lại nút này!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -726,6 +807,122 @@ public partial class MainWindow : Window
     private void MenuClose_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    #endregion
+
+    #region System Tray Handling
+
+    public void HideToTray(bool showTip = false)
+    {
+        SaveSession();
+        Hide();
+
+        if (showTip && !_hasShownTrayBalloon)
+        {
+            _hasShownTrayBalloon = true;
+            _trayManager?.ShowBalloon(
+                "CodePin đang chạy ngầm",
+                "Ứng dụng đã thu nhỏ xuống khay hệ thống. Bấm đúp vào biểu tượng để mở lại.");
+        }
+    }
+
+    public void ShowWindowFromTray()
+    {
+        if (!IsVisible)
+        {
+            Show();
+        }
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+        Activate();
+        Topmost = true;
+        Focus();
+    }
+
+    private void ShowTrayContextMenu()
+    {
+        if (Resources["TrayContextMenu"] is ContextMenu menu)
+        {
+            TrayIconManager.SetForegroundWindow(_hwnd);
+            menu.Placement = PlacementMode.MousePoint;
+            menu.IsOpen = true;
+        }
+    }
+
+    private void TrayMenuOpen_Click(object sender, RoutedEventArgs e)
+    {
+        ShowWindowFromTray();
+    }
+
+    private void TrayMenuResetPosition_Click(object sender, RoutedEventArgs e)
+    {
+        this.Left = Math.Max(50, (SystemParameters.PrimaryScreenWidth - this.Width) / 2);
+        this.Top = Math.Max(50, (SystemParameters.PrimaryScreenHeight - this.Height) / 2);
+        ShowWindowFromTray();
+        ShowToast("🎯 Đã đặt lại vị trí cửa sổ ở giữa màn hình");
+    }
+
+    private void MenuCreateShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        CreateDesktopShortcut(silent: false);
+    }
+
+    public bool CreateDesktopShortcut(bool silent = false)
+    {
+        try
+        {
+            Type? shellType = Type.GetTypeFromProgID("WScript.Shell");
+            if (shellType == null)
+            {
+                if (!silent) MessageBox.Show("Không thể khởi tạo dịch vụ WScript.Shell của Windows.", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+
+            dynamic shell = Activator.CreateInstance(shellType)!;
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            string shortcutPath = Path.Combine(desktop, "CodePin.lnk");
+            string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? "";
+
+            if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+            {
+                exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CodePin.exe");
+            }
+
+            dynamic shortcut = shell.CreateShortcut(shortcutPath);
+            shortcut.TargetPath = exePath;
+            shortcut.WorkingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory;
+            shortcut.Description = "CodePin - Ghim Ảnh & Cửa Sổ Nổi Cho Coder";
+
+            string icoPath = Path.Combine(Path.GetDirectoryName(exePath) ?? "", "app.ico");
+            if (File.Exists(icoPath))
+            {
+                shortcut.IconLocation = icoPath + ", 0";
+            }
+
+            shortcut.Save();
+            if (!silent) ShowToast("🖥️ Đã tạo lối tắt CodePin ngoài Desktop!");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (!silent) MessageBox.Show("Có lỗi khi tạo lối tắt: " + ex.Message, "Lỗi", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+    }
+
+    private void TrayMenuExit_Click(object sender, RoutedEventArgs e)
+    {
+        ExitApplication();
+    }
+
+    public void ExitApplication()
+    {
+        _isExplicitExit = true;
+        Close();
+        Application.Current.Shutdown();
     }
 
     #endregion
